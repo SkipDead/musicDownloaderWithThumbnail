@@ -1,21 +1,48 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+from urllib.error import HTTPError
+from urllib.parse import parse_qs, urlparse
 import cv2
-import math
 import re
-import io
 import urllib.request
 
+YOUTUBE_DOMAINS = [
+    'youtu.be',
+    'youtube.com',
+]
+
+def extract_id(url_string):
+    # Make sure all URLs start with a valid scheme
+    if not url_string.lower().startswith('http'):
+        url_string = 'http://%s' % url_string
+
+    url = urlparse(url_string)
+
+    # Check host against whitelist of domains
+    if url.hostname.replace('www.', '') not in YOUTUBE_DOMAINS:
+        return None
+
+    # Video ID is usually to be found in 'v' query string
+    qs = parse_qs(url.query)
+    if 'v' in qs:
+        return qs['v'][0]
+
+    # Otherwise fall back to path component
+    return url.path.lstrip('/')
 
 def getThumbnail(url):
-    exp = "^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*"
-    s = re.findall(exp,url)[0][-1]
+    s = extract_id(url)
     print("youtube video code : " + s)
     thumbnail = f"https://i.ytimg.com/vi/{s}/maxresdefault.jpg"
     print(thumbnail)
+
     f = open(f'{s}.jpg','wb')
-    f.write(urllib.request.urlopen(thumbnail).read())
+
+    try:
+        opened_url = urllib.request.urlopen(thumbnail)
+    except HTTPError:
+        thumbnail = f"https://img.youtube.com/vi/{s}/hqdefault.jpg"
+        opened_url = urllib.request.urlopen(thumbnail)
+    
+    f.write(opened_url.read())
     f.close()
     return s+'.jpg'
 
